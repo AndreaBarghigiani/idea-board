@@ -1,35 +1,58 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+// Utils
+import { useState } from 'react';
+import './App.css';
+
+// Types
+export type Idea = {
+  title: string;
+  content: string;
+  contentLength?: number;
+  createdAt: Date;
+  updatedAt?: Date;
+};
+// Components
+import { Button } from '@/components/ui/button';
+import IdeaCard from '@/components/idea-card';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [ideas, setIdeas] = useState<Idea[]>([]);
+
+  const handleAddIdea = () => {
+    const newIdea: Idea = {
+      title: 'Add a title',
+      content: 'Add a content',
+      createdAt: new Date(),
+    };
+    setIdeas((prev) => [...prev, newIdea]);
+  };
+
+  const handleRemoveIdea = (time: number) => {
+    const ideaIndex = ideas.findIndex(
+      (idea) => idea.createdAt.getTime() === time
+    );
+    if (ideaIndex !== -1) {
+      setIdeas((prev) => [
+        ...prev.slice(0, ideaIndex),
+        ...prev.slice(ideaIndex + 1),
+      ]);
+    }
+  };
 
   return (
     <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+      <div className='max-w-md mx-auto my-4'>
+        {ideas.map((idea) => (
+          <IdeaCard
+            key={idea.createdAt.toLocaleString()}
+            idea={idea}
+            removeIdea={handleRemoveIdea}
+          />
+        ))}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+
+      <Button onClick={handleAddIdea}>Create your idea</Button>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
