@@ -1,5 +1,7 @@
 // Utils
 import { useReducer, useRef, useEffect } from 'react';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 // Types
 import { Idea } from '@/App';
@@ -10,7 +12,7 @@ type Action =
       type: ActionWithText;
       text: string;
     }
-  | { type: 'update' };
+  | { type: 'update'; updateFn?: (idea: Idea) => void };
 
 // Components
 import {
@@ -30,9 +32,7 @@ const reducer = (state: Idea, action: Action) => {
     case 'editingTitle':
       return { ...state, title: action.text };
     case 'editingContent': {
-      if (action.text.length >= 140) {
-        return state;
-      }
+      if (action.text.length >= 140) return state;
 
       return {
         ...state,
@@ -40,8 +40,16 @@ const reducer = (state: Idea, action: Action) => {
         contentLength: action.text.length,
       };
     }
-    case 'update':
-      return { ...state, updatedAt: new Date() };
+    case 'update': {
+      const newState = { ...state, updatedAt: new Date() };
+
+      // Workaround for race condition
+      setTimeout(() => {
+        if (action.updateFn) action.updateFn(newState);
+      }, 200);
+
+      return newState;
+    }
     default:
       return state;
   }
@@ -50,9 +58,11 @@ const reducer = (state: Idea, action: Action) => {
 const IdeaCard = ({
   idea,
   removeIdea,
+  updateIdea,
 }: {
   idea: Idea;
   removeIdea: (time: number) => void;
+  updateIdea: (idea: Idea) => void;
 }) => {
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const [state, dispatch] = useReducer(reducer, idea);
@@ -65,6 +75,8 @@ const IdeaCard = ({
     }
   }, [state.content]);
 
+  // Send update back to parent
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -76,7 +88,8 @@ const IdeaCard = ({
   };
 
   const handleUpdate = () => {
-    dispatch({ type: 'update' });
+    dispatch({ type: 'update', updateFn: updateIdea });
+    toast('The idea has been updated.');
   };
 
   return (
@@ -84,11 +97,12 @@ const IdeaCard = ({
       <CardHeader className='flex flex-row items-center pb-2 space-y-0 gap-x-2'>
         <CardTitle>
           <Input
-            value={state.title}
             name='title'
+            value={state.title}
             className='text-3xl font-bold border-none'
             onChange={handleChange}
             onFocus={(e) => e.target.select()}
+            onBlur={handleUpdate}
             autoFocus
           />
         </CardTitle>
@@ -105,18 +119,29 @@ const IdeaCard = ({
       <CardContent className='pb-2'>
         <Textarea
           name='content'
-          onChange={handleChange}
           value={state.content}
+          className='min-h-0 border-none resize-none peer'
+          onChange={handleChange}
           ref={textAreaRef}
           onFocus={(e) => e.target.select()}
           onBlur={handleUpdate}
           rows={1}
-          className='min-h-0 border-none resize-none peer'
         />
 
-        <p className='h-0 mt-1 text-xs text-right transition-opacity opacity-0 peer-focus:opacity-100 peer-focus:h-auto'>
-          {state.contentLength}/140
-        </p>
+        {state.contentLength > 100 && (
+          <p
+            className={cn(
+              'h-0 mt-1 text-xs text-right transition-all opacity-0 peer-focus:opacity-100 peer-focus:h-auto',
+              {
+                'text-red-400': state.contentLength > 100,
+                'text-red-600': state.contentLength > 115,
+                'text-red-800': state.contentLength > 130,
+              }
+            )}
+          >
+            {state.contentLength}/140
+          </p>
+        )}
       </CardContent>
 
       <CardFooter>
